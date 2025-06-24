@@ -7,19 +7,19 @@ class DatabricksDDLGenerator:
         self.db_name = metadata["database"]
         self.table_name = metadata["table_name"]
         self.full_table_name = f"{self.catalog}.{self.db_name}.{self.table_name}"
+        
         self.columns = metadata["columns"]
-        self.partitions = metadata["partitions"]
+        self.partitions = metadata["partitions",[]]
         self.storage_format = metadata["storage_format"]
         self.bucket_cols = self.storage_format.get("bucket_columns", [])
         self.num_buckets = self.storage_format.get("num_buckets", 0)
-        self.location = self._clean_location(metadata.get("location", ""))
+        self.skewed_cols = self.storage_format.get("skewed_columns", [])
+        
+        self.location = metadata.get("location", "")
         self.table_type = metadata.get("table_type", "MANAGED_TABLE")
         self.properties = metadata.get("table_parameters", {})
-
-    def _clean_location(self, loc: str) -> str:
-        if loc.startswith("file:/"):
-            return loc.replace("file:/", "dbfs:/")
-        return loc
+        self.constraints = metadata.get("constraints", {}) if "constraints" in metadata else {}
+        
 
     def _generate_column_definitions(self) -> str:
         lines = []
@@ -31,16 +31,29 @@ class DatabricksDDLGenerator:
             lines.append(f"  {name} {dtype}{constraint}")
         return ",\n".join(lines)
     
-    def _generate_primary_key_comment(self) -> str:
-        if pk := self.constraints.get("primary_key"):
-            return f"\n-- Primary Key: {', '.join(pk)}"
-        return ""
 
     def _generate_partition_clause(self) -> str:
         if not self.partitions:
             return ""
-        part_defs = ", ".join([f"{p['name']} {TypeMapper.map_type(p['type'])}" for p in self.partitions])
-        return f"\nPARTITIONED BY ({part_defs})"
+        
+        # Adding Hive partitions
+        partition_defs = [
+            (p['name'], TypeMapper.map_type(p['type'])) for p in self.partitions
+        ]
+
+        # Add skewed columns if not already present
+        existing = {p[0] for p in partition_defs}
+        for col in self.skewed_cols:
+            if col not in existing:
+                dtype = self._get_column_type(col)
+                if dtype:
+                    partition_defs.append((col, TypeMapper.map_type(dtype)))
+
+        if not partition_defs:
+            return ""
+        part_str = ", ".join([f"{name} {dtype}" for name, dtype in partition_defs])
+        return f"\nPARTITIONED BY ({part_str})"
+
 
     def _generate_location_clause(self) -> str:
         if self.table_type == "EXTERNAL_TABLE" and self.location:
@@ -53,6 +66,12 @@ class DatabricksDDLGenerator:
             return ""
         props_str = ",\n  ".join([f"'{k}' = '{v}'" for k, v in props.items()])
         return f"\nTBLPROPERTIES (\n  {props_str}\n)"
+    
+    def _generate_primary_key_comment(self) -> str:
+        if pk := self.constraints.get("primary_key"):
+            return f"\n-- Primary Key: {', '.join(pk)}"
+        return ""
+
 
     def _infer_format(self) -> str:
         input_format = self.storage_format.get("input_format", "").lower()

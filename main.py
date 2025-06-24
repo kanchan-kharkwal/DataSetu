@@ -6,6 +6,9 @@ from connector.db_function import list_databases, list_tables, describe_formatte
 from connector.section_fetching import split_describe_formatted
 from connector.utils import convert_sections_to_clean_json
 
+from convertor.data_fetcher import HiveMetadataFetcher
+from convertor.ddl_generator import DatabricksDDLGenerator
+
 
 def load_hive_config(path: str = "config/creds.yaml") -> dict:
     full_path = os.path.join(os.path.dirname(__file__), path)
@@ -54,6 +57,16 @@ def main():
                         json_filename = f"{output_dir}/{db}.{table}_clean.json"
                         with open(json_filename, "w") as f:
                             json.dump(clean_json, f, indent=2)
+                            
+                        metadata = HiveMetadataFetcher(clean_json).extract_metadata()
+                        ddl_generator = DatabricksDDLGenerator(metadata)
+                        ddl = ddl_generator.generate_ddl()
+                        optimize_stmt = ddl_generator.generate_optimize_statement()
+
+                        print(f"\nDDL for {db}.{table}:\n{ddl}")
+                        if optimize_stmt:
+                            print(f"\n{optimize_stmt}")
+
 
                     except Exception as e:
                         print(f"Failed to describe table: {e}")
