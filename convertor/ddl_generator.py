@@ -20,83 +20,126 @@ class DatabricksDDLGenerator:
         self.properties = metadata.get("table_parameters", {})
         self.constraints = metadata.get("constraints", {}) if "constraints" in metadata else {}
         
+    def _has_column_defaults(self) -> bool:
+        return any("default" in col for col in self.columns)
+        
 
     def _generate_column_definitions(self) -> str:
-        lines = []
-        pk_cols = set(self.constraints.get("primary_key", []))
-        for col in self.columns:
-            name = col["name"]
-            dtype = TypeMapper.map_type(col["type"])
-            constraint = " NOT NULL" if name in pk_cols else ""
-            lines.append(f"  {name} {dtype}{constraint}")
-        return ",\n".join(lines)
+        try:
+            lines = []
+            pk_cols = set(self.constraints.get("primary_key", []))
+            for col in self.columns:
+                name = col["name"]
+                dtype = TypeMapper.map_type(col["type"])
+                constraint = " NOT NULL" if name in pk_cols else ""
+                lines.append(f"  {name} {dtype}{constraint}")
+            return ",\n".join(lines)
+        except Exception as e:
+            print(f"Error generating column definitions: {e}")
+            return ""
+    
+    def _get_column_type(self, column_name: str) -> str | None:
+        """Find the original Hive type of a column."""
+        try:
+            for column in self.columns:
+                if column["name"] == column_name:
+                    return column["type"]
+        except Exception as e:
+            print(f"Error getting column type for {column_name}: {e}")    
+        return None
     
 
-    def _generate_partition_clause(self) -> str:
-        if not self.partitions:
+    def generate_partition_clause(self) -> str:
+        try:
+            if not self.partitions:
+                return ""
+            
+            # Adding Hive partitions
+            partition_cols = [
+                p['name'] for p in self.partitions
+            ]
+
+            # Add skewed columns if not already present
+            partition_cols = [p['name'] for p in self.partitions]
+
+            for col in self.skewed_cols:
+                if col not in partition_cols:
+                    partition_cols.append(col)
+
+            if not partition_cols:
+                return ""
+
+            part_str = ", ".join(partition_cols)
+            return f"\nPARTITIONED BY ({part_str})"
+        except Exception as e:
+            print(f"Error generating partition clause: {e}")
             return ""
-        
-        # Adding Hive partitions
-        partition_defs = [
-            (p['name'], TypeMapper.map_type(p['type'])) for p in self.partitions
-        ]
-
-        # Add skewed columns if not already present
-        existing = {p[0] for p in partition_defs}
-        for col in self.skewed_cols:
-            if col not in existing:
-                dtype = self._get_column_type(col)
-                if dtype:
-                    partition_defs.append((col, TypeMapper.map_type(dtype)))
-
-        if not partition_defs:
-            return ""
-        part_str = ", ".join([f"{name} {dtype}" for name, dtype in partition_defs])
-        return f"\nPARTITIONED BY ({part_str})"
 
 
-    def _generate_location_clause(self) -> str:
-        if self.table_type == "EXTERNAL_TABLE" and self.location:
-            return f"\nLOCATION '{self.location}'"
+    def generate_location_clause(self) -> str:
+        try:
+            if self.table_type == "EXTERNAL_TABLE" and self.location:
+                return f"\nLOCATION '{self.location}'"
+        except Exception as e:
+            print(f"[ERROR] Failed to generate location clause: {e}")
         return ""
 
-    def _generate_properties_clause(self) -> str:
-        props = {k: v for k, v in self.properties.items() if k.strip()}
-        if not props:
+    def generate_properties_clause(self) -> str:
+        try:
+            props = {k: v for k, v in self.properties.items() if k.strip()}
+            if self._has_column_defaults():
+                props["delta.feature.allowColumnDefaults"] = "enabled"
+            if not props:
+                return ""
+            props_str = ",\n  ".join([f"'{k}' = '{v}'" for k, v in props.items()])
+            return f"\nTBLPROPERTIES (\n  {props_str}\n)"
+        except Exception as e:
+            print(f"[ERROR] Failed to generate table properties: {e}")
             return ""
-        props_str = ",\n  ".join([f"'{k}' = '{v}'" for k, v in props.items()])
-        return f"\nTBLPROPERTIES (\n  {props_str}\n)"
     
     def _generate_primary_key_comment(self) -> str:
-        if pk := self.constraints.get("primary_key"):
-            return f"\n-- Primary Key: {', '.join(pk)}"
+        try:
+            if pk := self.constraints.get("primary_key"):
+                return f"\n-- Primary Key: {', '.join(pk)}"
+        except Exception as e:
+            print(f"[ERROR] Failed to generate PK comment: {e}")
         return ""
 
 
     def _infer_format(self) -> str:
-        input_format = self.storage_format.get("input_format", "").lower()
-        if "orc" in input_format:
-            return "DELTA"
-        elif "parquet" in input_format:
-            return "PARQUET"
-        elif "textinputformat" in input_format:
-            return "CSV"
-        elif "avro" in input_format:
-            return "AVRO"
+        try:
+            input_format = self.storage_format.get("input_format", "").lower()
+            if "orc" in input_format:
+                return "DELTA"
+            elif "parquet" in input_format:
+                return "PARQUET"
+            elif "textinputformat" in input_format:
+                return "CSV"
+            elif "avro" in input_format:
+                return "AVRO"
+        except Exception as e:
+            print(f"[ERROR] Failed to infer file format: {e}")
         return "DELTA"
 
     def generate_ddl(self) -> str:
-        ddl = f"CREATE {'EXTERNAL' if self.table_type == 'EXTERNAL_TABLE' else ''} TABLE {self.full_table_name} (\n"
-        ddl += self._generate_column_definitions()
-        ddl += "\n)"
-        ddl += f"\nUSING {self._infer_format()}"
-        ddl += self._generate_partition_clause()
-        ddl += self._generate_location_clause()
-        ddl += self._generate_properties_clause()
-        return ddl
+        try:
+            ddl = f"CREATE {'EXTERNAL' if self.table_type == 'EXTERNAL_TABLE' else ''} TABLE {self.full_table_name} (\n"
+            ddl += self._generate_column_definitions()
+            ddl += "\n)"
+            ddl += f"\nUSING {self._infer_format()}"
+            ddl += self.generate_partition_clause()
+            ddl += self.generate_location_clause()
+            ddl += self.generate_properties_clause()
+            return ddl
+        except Exception as e:
+            print(f"[ERROR] Failed to generate full DDL for {self.full_table_name}: {e}")
+            return f"-- Failed to generate DDL for {self.full_table_name}"
 
     def generate_optimize_statement(self) -> str | None:
-        if self.bucket_cols:
-            zorder_cols = ", ".join(self.bucket_cols)
-            return f"OPTIMIZE {self.full_table_name} ZORDER BY ({zorder_cols});"
+        try:
+            if self.bucket_cols:
+                zorder_cols = ", ".join(self.bucket_cols)
+                return f"-- OPTIMIZE {self.full_table_name} ZORDER BY ({zorder_cols}); COMMENT 'ZORDER statement for bucketing optimization TO BE APPLIED AT RUNTIME'"
+        except Exception as e:
+            print(f"[ERROR] Failed to generate OPTIMIZE statement: {e}")
         return None
