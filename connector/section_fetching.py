@@ -8,24 +8,32 @@ def split_describe_formatted(description_rows: list[tuple]) -> dict:
         "# Constraints": "constraints",
     }
 
-    sections = {section: [] for section in section_mapping.values()}
-    sections.update({"columns": [], "others": []})
+    try:
+        sections = {section: [] for section in section_mapping.values()}
+        sections.update({"columns": [], "others": []})
 
-    current_section = "columns"
+        current_section = "columns"
 
-    for row in description_rows:
-        col0 = row[0].strip() if row[0] else ""
-        col1 = row[1].strip() if row[1] else ""
+        for row in description_rows:
+            if not isinstance(row, (list, tuple)) or len(row) < 2:
+                continue
 
-        header = col0
+            col0 = row[0].strip() if row[0] else ""
+            col1 = row[1].strip() if row[1] else ""
 
-        if header in section_mapping:
-            current_section = section_mapping[header]
-            continue
+            header = col0
 
-        if not any([col0, col1]):
-            continue
+            if header in section_mapping:
+                current_section = section_mapping[header]
+                continue
 
-        sections[current_section].append((col0, col1))
+            if not any([col0, col1]):
+                continue
 
-    return sections
+            sections[current_section].append((col0, col1))
+
+        return sections
+
+    except Exception as e:
+        print(f"[ERROR] Failed to split DESCRIBE FORMATTED output: {e}")
+        return {}

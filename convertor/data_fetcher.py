@@ -1,4 +1,4 @@
-class HiveMetadataFetcher:
+class HiveMetadataFetcher():
     def __init__(self, hive_json: dict):
         if not isinstance(hive_json, dict):
             print("Warning: Input is not a dictionary")
