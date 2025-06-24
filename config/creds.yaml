@@ -1,0 +1,7 @@
+user: ""
+password: ""
+host: "localhost"
+port: 10000
+database: "default"
+auth: "NOSASL"
+log_dir: "logs/hive"
