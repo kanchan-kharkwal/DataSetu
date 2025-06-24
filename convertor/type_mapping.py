@@ -28,7 +28,6 @@ class TypeMapper:
                 if hive_type.startswith(complex_prefix):
                     return handler(hive_type)
 
-            # Handle DECIMAL with precision/scale
             if base_type == "decimal":
                 return hive_type.upper()
 

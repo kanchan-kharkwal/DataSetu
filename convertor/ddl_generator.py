@@ -28,15 +28,21 @@ class DatabricksDDLGenerator:
         try:
             not_null_cols = set(self.constraints.get("not_null", []))
             lines = []
+            
             for col in self.columns:
                 name = col["name"]
+                hive_type = col.get("type")
+
+                if not name or not hive_type:
+                    print(f"❗ Warning: Column '{name}' has missing or empty type. Skipping.")
+                    continue  
+                    
                 dtype = TypeMapper.map_type(col["type"])
                 
                 default_val = col.get("default")
                 column_def = f"  {name} {dtype}"
                 
                 if default_val is not None:
-                # Handle quoting for string values
                     if isinstance(default_val, str):
                         default_val = f"'{default_val}'"
                     column_def += f" DEFAULT {default_val}"
@@ -61,7 +67,7 @@ class DatabricksDDLGenerator:
                 p['name'] for p in self.partitions
             ]
 
-            # Add skewed columns if not already present
+            # Adding skewed columns if not present
             partition_cols = [p['name'] for p in self.partitions]
 
             for col in self.skewed_cols:
@@ -131,6 +137,9 @@ class DatabricksDDLGenerator:
 
     def generate_ddl(self) -> str:
         try:
+            if self.table_type == 'EXTERNAL_TABLE' and not self.location:
+                return f"-- ❗ ERROR: EXTERNAL TABLE '{self.full_table_name}' missing LOCATION clause"
+
             ddl = f"CREATE {'EXTERNAL' if self.table_type == 'EXTERNAL_TABLE' else ''} TABLE {self.full_table_name} (\n"
             ddl += self._generate_column_definitions()
             ddl += "\n)"
