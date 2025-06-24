@@ -1,19 +1,4 @@
 class TypeMapper:
-    SIMPLE_TYPE_MAP = {
-        "int": "INT",
-        "tinyint": "TINYINT",
-        "smallint": "SMALLINT",
-        "bigint": "BIGINT",
-        "float": "FLOAT",
-        "double": "DOUBLE",
-        "boolean": "BOOLEAN",
-        "string": "STRING",
-        "timestamp": "TIMESTAMP",
-        "date": "DATE",
-        "binary": "BINARY",
-        "varchar": "STRING",
-        "char": "STRING"
-    }
 
     @staticmethod
     def map_type(hive_type: str) -> str:

@@ -5,9 +5,8 @@ from connector.connection import ConnectionToHive
 from connector.db_function import list_databases, list_tables, describe_formatted
 from connector.section_fetching import split_describe_formatted
 from connector.utils import convert_sections_to_clean_json
-
-from convertor.data_fetcher import HiveMetadataFetcher
-from convertor.ddl_generator import DatabricksDDLGenerator
+from convertor.column_strucuture import generate_column_definitions
+from convertor.parition_strucuture import generate_partition_definitions
 
 
 def load_hive_config(path: str = "config/creds.yaml") -> dict:
@@ -57,19 +56,22 @@ def main():
                         json_filename = f"{output_dir}/{db}.{table}_clean.json"
                         with open(json_filename, "w") as f:
                             json.dump(clean_json, f, indent=2)
-                            
-                        metadata = HiveMetadataFetcher(clean_json).extract_metadata()
-                        ddl_generator = DatabricksDDLGenerator(metadata)
-                        ddl = ddl_generator.generate_ddl()
-                        optimize_stmt = ddl_generator.generate_optimize_statement()
 
-                        print(f"\nDDL for {db}.{table}:\n{ddl}")
-                        if optimize_stmt:
-                            print(f"\n{optimize_stmt}")
+                        columns = clean_json.get("columns") or []
+                        partitions = clean_json.get("partitions") or []
+                        skewed_cols = (
+                            clean_json.get("storage_format", {}).get("skewed_columns")
+                            or []
+                        )
 
+                        column_defs = generate_column_definitions(columns)
+                        partition_defs = generate_partition_definitions(
+                            partitions, skewed_cols
+                        )
 
                     except Exception as e:
                         print(f"Failed to describe table: {e}")
+
             else:
                 print("(No tables found)")
         except Exception as e:

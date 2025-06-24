@@ -1,0 +1,120 @@
+{
+  "database": "test",
+  "table_name": "full_data_example",
+  "location": "file:/user/hive/warehouse/bhumi.db/full_data_example",
+  "table_type": "EXTERNAL_TABLE",
+  "columns": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "is_active",
+      "type": "boolean"
+    },
+    {
+      "name": "birth_date",
+      "type": "date"
+    },
+    {
+      "name": "register_time",
+      "type": "timestamp"
+    },
+    {
+      "name": "age",
+      "type": "tinyint"
+    },
+    {
+      "name": "rating",
+      "type": "smallint"
+    },
+    {
+      "name": "score",
+      "type": "float"
+    },
+    {
+      "name": "salary",
+      "type": "double"
+    },
+    {
+      "name": "networth",
+      "type": "decimal(20,4)"
+    },
+    {
+      "name": "gender",
+      "type": "char(1)"
+    },
+    {
+      "name": "email",
+      "type": "varchar(255)"
+    },
+    {
+      "name": "uuid",
+      "type": "binary"
+    },
+    {
+      "name": "bio",
+      "type": "string"
+    },
+    {
+      "name": "phone_numbers",
+      "type": "array<string>"
+    },
+    {
+      "name": "address",
+      "type": "map<string,string>"
+    },
+    {
+      "name": "attributes",
+      "type": "struct<height:float,weight:float>"
+    },
+    {
+      "name": "last_updated_ts",
+      "type": "timestamp"
+    }
+  ],
+  "partitions": [
+    {
+      "name": "year",
+      "type": "int"
+    },
+    {
+      "name": "month",
+      "type": "int"
+    }
+  ],
+  "storage_format": {
+    "input_format": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "output_format": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
+    "serde_library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "compressed": "No",
+    "bucket_columns": [
+      "gender"
+    ],
+    "sort_columns": [
+      "Order(col:register_time",
+      "order:1)"
+    ],
+    "num_buckets": 8,
+    "stored_as_subdirectories": true,
+    "skewed_columns": [
+      "gender"
+    ],
+    "skewed_values": [
+      "m]",
+      "[f"
+    ],
+    "desc_params": {}
+  },
+  "table_parameters": {},
+  "meta": {
+    "owner": "BAPS",
+    "created_at": "Mon Jun 23 22:48:05 IST 2025",
+    "last_accessed": "UNKNOWN",
+    "retention": "0"
+  }
+}

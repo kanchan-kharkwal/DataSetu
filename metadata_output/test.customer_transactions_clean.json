@@ -1,0 +1,91 @@
+{
+  "database": "test",
+  "table_name": "customer_transactions",
+  "location": "file:/warehouse/external/customer_transactions",
+  "table_type": "EXTERNAL_TABLE",
+  "columns": [
+    {
+      "name": "transaction_id",
+      "type": "string"
+    },
+    {
+      "name": "customer_id",
+      "type": "string"
+    },
+    {
+      "name": "transaction_date",
+      "type": "date"
+    },
+    {
+      "name": "transaction_time",
+      "type": "timestamp"
+    },
+    {
+      "name": "item_list",
+      "type": "array<string>"
+    },
+    {
+      "name": "total_amount",
+      "type": "decimal(15,2)"
+    },
+    {
+      "name": "payment_type",
+      "type": "string"
+    },
+    {
+      "name": "customer_metadata",
+      "type": "map<string,string>"
+    },
+    {
+      "name": "location",
+      "type": "struct<city:string,state:string,country:string>"
+    },
+    {
+      "name": "is_returned",
+      "type": "boolean"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp"
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp"
+    }
+  ],
+  "partitions": [
+    {
+      "name": "year",
+      "type": "int"
+    },
+    {
+      "name": "month",
+      "type": "int"
+    }
+  ],
+  "storage_format": {
+    "input_format": "org.apache.hadoop.mapred.TextInputFormat",
+    "output_format": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+    "serde_library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "compressed": "No",
+    "bucket_columns": [
+      "customer_id"
+    ],
+    "sort_columns": [
+      "Order(col:transaction_date",
+      "order:1)"
+    ],
+    "num_buckets": 12,
+    "stored_as_subdirectories": false,
+    "skewed_columns": [],
+    "skewed_values": [],
+    "desc_params": {}
+  },
+  "table_parameters": {},
+  "meta": {
+    "owner": "BAPS",
+    "created_at": "Tue Jun 24 14:33:59 IST 2025",
+    "last_accessed": "UNKNOWN",
+    "retention": "0"
+  }
+}
