@@ -9,7 +9,7 @@ class DatabricksDDLGenerator:
         self.full_table_name = f"{self.catalog}.{self.db_name}.{self.table_name}"
         
         self.columns = metadata["columns"]
-        self.partitions = metadata["partitions",[]]
+        self.partitions = metadata.get("partitions",[])
         self.storage_format = metadata["storage_format"]
         self.bucket_cols = self.storage_format.get("bucket_columns", [])
         self.num_buckets = self.storage_format.get("num_buckets", 0)
@@ -26,27 +26,29 @@ class DatabricksDDLGenerator:
 
     def _generate_column_definitions(self) -> str:
         try:
+            not_null_cols = set(self.constraints.get("not_null", []))
             lines = []
-            pk_cols = set(self.constraints.get("primary_key", []))
             for col in self.columns:
                 name = col["name"]
                 dtype = TypeMapper.map_type(col["type"])
-                constraint = " NOT NULL" if name in pk_cols else ""
-                lines.append(f"  {name} {dtype}{constraint}")
+                
+                default_val = col.get("default")
+                column_def = f"  {name} {dtype}"
+                
+                if default_val is not None:
+                # Handle quoting for string values
+                    if isinstance(default_val, str):
+                        default_val = f"'{default_val}'"
+                    column_def += f" DEFAULT {default_val}"
+                
+                if name in not_null_cols:
+                    column_def += " NOT NULL"
+                lines.append(column_def)
             return ",\n".join(lines)
+        
         except Exception as e:
             print(f"Error generating column definitions: {e}")
             return ""
-    
-    def _get_column_type(self, column_name: str) -> str | None:
-        """Find the original Hive type of a column."""
-        try:
-            for column in self.columns:
-                if column["name"] == column_name:
-                    return column["type"]
-        except Exception as e:
-            print(f"Error getting column type for {column_name}: {e}")    
-        return None
     
 
     def generate_partition_clause(self) -> str:
@@ -87,10 +89,16 @@ class DatabricksDDLGenerator:
     def generate_properties_clause(self) -> str:
         try:
             props = {k: v for k, v in self.properties.items() if k.strip()}
+            
             if self._has_column_defaults():
                 props["delta.feature.allowColumnDefaults"] = "enabled"
+            
+            for name, expr in self.constraints.get("check_constraints", {}).items():
+                props[f"delta.constraints.{name}"] = expr
+            
             if not props:
                 return ""
+            
             props_str = ",\n  ".join([f"'{k}' = '{v}'" for k, v in props.items()])
             return f"\nTBLPROPERTIES (\n  {props_str}\n)"
         except Exception as e:
