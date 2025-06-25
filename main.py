@@ -10,6 +10,7 @@ from convertor.helper_methods import (
     generate_properties_clause,
     generate_optimize_statement,
     infer_format,
+    export_ddl_to_sql,
 )
 
 
@@ -64,7 +65,7 @@ def process_table(hive_conn, db: str, table: str) -> None:
     if optimize_stmt:
         ddl += f"\n{optimize_stmt}"
 
-    print(ddl)
+    export_ddl_to_sql("ddl_output", db, table, ddl)
 
 
 def main():

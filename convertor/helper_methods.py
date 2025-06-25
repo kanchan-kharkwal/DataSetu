@@ -1,5 +1,5 @@
 from typing import Optional
-
+import os
 
 def generate_location_clause(table_type: str, location: str) -> str:
     if table_type == "EXTERNAL_TABLE" and location:
@@ -67,3 +67,9 @@ def infer_format(input_format) -> str:
         (fmt for key, fmt in format_mapping.items() if key in input_format),
         "DELTA"
     )
+
+def export_ddl_to_sql(output_dir: str, db: str, table: str, ddl: str):
+    os.makedirs(output_dir, exist_ok=True)
+    file_path = os.path.join(output_dir, f"{db}.{table}.sql")
+    with open(file_path, "w") as f:
+        f.write(ddl)
