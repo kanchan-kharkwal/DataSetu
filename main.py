@@ -12,6 +12,7 @@ from convertor.helper_methods import (
     infer_format,
     export_ddl_to_sql,
 )
+from convertor.constraint_handling import generate_all_constraints
 
 
 def load_hive_config(path: str = "config/creds.yaml") -> dict:
@@ -41,6 +42,13 @@ def process_table(hive_conn, db: str, table: str) -> None:
     table_type = clean_json.get("table_type", "")
     location = clean_json.get("location", "")
     constraints = clean_json.get("constraints", {})
+    constraint_package = generate_all_constraints(f"{db}.{table}", clean_json)
+    column_constraints = constraint_package["column_modifications"]
+
+    for col in clean_json["columns"]:
+        if col["name"] in column_constraints:
+            col.update(column_constraints[col["name"]])
+
     properties = clean_json.get("table_parameters", {})
 
     input_format = storage_format.get("input_format", "")
@@ -58,7 +66,16 @@ def process_table(hive_conn, db: str, table: str) -> None:
         file_format=file_format,
     )
 
-    ddl += generate_properties_clause(properties, constraints, columns)
+    # Merge additional table_properties from constraint_manager
+    properties.update(constraint_package["table_properties"])
+
+    ddl += generate_properties_clause(properties, constraint_package, columns)
+
+    # Step 3: Append ALTER TABLE constraint statements
+    alter_statements = constraint_package["alter_statements"]
+    if alter_statements:
+        ddl += "\n\n-- Constraints"
+        ddl += "\n" + "\n".join(alter_statements)
 
     bucket_cols = storage_format.get("bucket_columns", [])
     optimize_stmt = generate_optimize_statement(bucket_cols, table, db)

@@ -1,4 +1,5 @@
 import ast
+from connector.parse_constraints import parse_constraints
 
 def execute(connection, sql_text: str):
     if not connection:
@@ -11,9 +12,9 @@ def execute(connection, sql_text: str):
     finally:
         cursor.close()
 
+
 def convert_sections_to_clean_json(db: str, table: str, sections: dict) -> dict:
     def clean_kv(rows):
-        """Extract key-value pairs safely from rows (supporting 3-tuples)."""
         return {
             k.strip().rstrip(":"): v.strip()
             for row in rows
@@ -21,7 +22,6 @@ def convert_sections_to_clean_json(db: str, table: str, sections: dict) -> dict:
         }
 
     def extract_columns(rows):
-        """Extract name, type, comment triplets from column/partition sections."""
         return [
             {
                 "name": name.strip(),
@@ -51,7 +51,13 @@ def convert_sections_to_clean_json(db: str, table: str, sections: dict) -> dict:
                 result[k.strip()] = v.strip()
         return result
 
-    # Begin extraction
+    # Extract constraints
+    constraints_raw = sections.get("constraints", []) + sections.get(
+        "not_null_constraints", []
+    )
+    constraint_data = parse_constraints(constraints_raw)
+
+    # Extract other parts
     table_info = clean_kv(sections.get("table_info", []))
     storage_info = clean_kv(sections.get("storage_info", []))
 
@@ -80,7 +86,8 @@ def convert_sections_to_clean_json(db: str, table: str, sections: dict) -> dict:
             "num_buckets": int(storage_info.get("Num Buckets", "0")),
             "stored_as_subdirectories": storage_info.get(
                 "Stored As SubDirectories", ""
-            ).lower() == "yes",
+            ).lower()
+            == "yes",
             "skewed_columns": skewed_cols,
             "skewed_values": skewed_vals,
             "desc_params": desc_params,
@@ -92,4 +99,5 @@ def convert_sections_to_clean_json(db: str, table: str, sections: dict) -> dict:
             "last_accessed": table_info.get("LastAccessTime", ""),
             "retention": table_info.get("Retention", ""),
         },
+        "constraints": constraint_data,
     }
