@@ -30,11 +30,8 @@ def process_table(hive_conn, db: str, table: str) -> None:
     print(f"Running DESCRIBE FORMATTED for: {db}.{table}")
     description = describe_formatted(hive_conn._conn, db, table)
     sections = split_describe_formatted(description)
-    print(sections)
     clean_json = convert_sections_to_clean_json(db, table, sections)
     export_clean_json("metadata_output", db, table, clean_json)
-    
-    
 
     columns = clean_json.get("columns", [])
     partitions = clean_json.get("partitions", [])
